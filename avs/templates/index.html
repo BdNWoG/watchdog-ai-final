@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AVS Dashboard</title>
+  <style>
+    /* Base Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #eef2f7;
+      color: #444;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    h1, h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      color: #2c3e50;
+    }
+    h2 {
+      font-size: 1.8rem;
+      color: #34495e;
+    }
+    #analysis {
+      background: #fff;
+      border-radius: 10px;
+      padding: 30px;
+      max-width: 600px;
+      margin: 20px auto;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    button {
+      display: inline-block;
+      background-color: #2980b9;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 30px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      margin: 20px auto;
+      text-align: center;
+    }
+    button:hover {
+      background-color: #1f6391;
+    }
+    #loading {
+      text-align: center;
+      font-size: 1.1rem;
+      margin: 10px 0;
+      display: none;
+      color: #888;
+    }
+    /* Spectrum styling */
+    #spectrum-container {
+      width: 100%;
+      max-width: 600px;
+      height: 20px;
+      background: linear-gradient(to right, #27ae60, #f1c40f, #e74c3c);
+      border-radius: 10px;
+      position: relative;
+      margin: 20px auto;
+      display: none;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+    #risk-indicator {
+      width: 3px;
+      height: 20px;
+      background: #2c3e50;
+      position: absolute;
+      top: 0;
+      transition: left 0.4s ease;
+    }
+    #spectrum-labels {
+      max-width: 600px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      padding: 0 5px;
+      display: none;
+      color: #555;
+    }
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 2rem;
+      }
+      h2 {
+        font-size: 1.5rem;
+      }
+      #analysis {
+        padding: 20px;
+      }
+      button {
+        width: 100%;
+        max-width: 300px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Automated Verification System (AVS)</h1>
+  <h2>Risk Analysis Dashboard</h2>
+  <div style="text-align: center;">
+    <button id="analyzeBtn">Analyze Transactions</button>
+  </div>
+  <div id="loading">Loading analysis...</div>
+  <div id="analysis">
+    <!-- Analysis result will be inserted here -->
+  </div>
+  
+  <!-- Spectrum Bar -->
+  <div id="spectrum-container">
+    <div id="risk-indicator"></div>
+  </div>
+  <div id="spectrum-labels">
+    <span>Low</span>
+    <span>High</span>
+  </div>
+
+  <!-- Monitor for Frontrun Button (always visible) -->
+  <div style="text-align: center;">
+    <button id="monitorBtn">Monitor for Frontrun</button>
+  </div>
+
+  <script>
+    const AVS_URL = 'http://localhost:5002/avs';
+    let currentRiskLevel = ''; // To track the current risk level
+
+    document.getElementById('analyzeBtn').addEventListener('click', async () => {
+      const loadingDiv = document.getElementById('loading');
+      const analysisDiv = document.getElementById('analysis');
+      const spectrumContainer = document.getElementById('spectrum-container');
+      const spectrumLabels = document.getElementById('spectrum-labels');
+
+      // Reset display and clear previous results
+      loadingDiv.style.display = 'block';
+      analysisDiv.innerHTML = '';
+      spectrumContainer.style.display = 'none';
+      spectrumLabels.style.display = 'none';
+
+      try {
+        const response = await fetch(AVS_URL);
+        if (!response.ok) {
+          analysisDiv.innerHTML = `<p>Error: ${response.status} - ${response.statusText}</p>`;
+          loadingDiv.style.display = 'none';
+          return;
+        }
+        const result = await response.json();
+
+        // Create HTML content for the analysis result
+        let content = `
+          <p><strong>Number of Transactions:</strong> ${result.num_transactions}</p>
+          <p><strong>Risk Score:</strong> ${result.analysis.risk_score}</p>
+          <p><strong>Risk Level:</strong> ${result.analysis.risk_level}</p>
+          <p><strong>Explanation:</strong> ${result.analysis.explanation}</p>
+        `;
+        analysisDiv.innerHTML = content;
+
+        // Update current risk level
+        currentRiskLevel = result.analysis.risk_level.toLowerCase();
+
+        // Display the spectrum and position the indicator based on the risk score
+        const riskScore = result.analysis.risk_score;
+        if (typeof riskScore === 'number' && riskScore >= 0 && riskScore <= 100) {
+          const indicator = document.getElementById('risk-indicator');
+          indicator.style.left = riskScore + '%';
+          spectrumContainer.style.display = 'block';
+          spectrumLabels.style.display = 'flex';
+        } else {
+          console.error('Invalid risk score:', riskScore);
+        }
+      } catch (error) {
+        analysisDiv.innerHTML = `<p>Error fetching analysis: ${error}</p>`;
+      }
+      loadingDiv.style.display = 'none';
+    });
+
+    // Always show the "Monitor for Frontrun" button functionality
+    document.getElementById('monitorBtn').addEventListener('click', async () => {
+      try {
+        const response = await fetch('http://localhost:5003/api/activate_monitoring', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token_address: "0xYOURTOKENADDRESS" })
+        });
+        if (response.ok) {
+          const result = await response.json();
+          alert('Frontrunner activated: ' + result.message);
+          // Optionally, redirect to the frontrunner dashboard:
+          window.location.href = 'http://localhost:5003';
+        } else {
+          alert('Error activating frontrunner monitoring.');
+        }
+      } catch (error) {
+        alert('Error activating frontrunner: ' + error);
+      }
+    });
+  </script>
+</body>
+</html>

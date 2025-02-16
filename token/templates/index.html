@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Meme Coin Dashboard</title>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1, h2 { margin-bottom: 10px; }
+    .stats { margin-bottom: 20px; }
+    .stat { margin: 10px 0; font-size: 1.2em; }
+    form { margin-bottom: 20px; }
+    input, button, select, label { padding: 8px; margin: 5px; font-size: 1em; }
+    #chart-container { width: 80%; max-width: 800px; margin: auto; }
+    .global-options { margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <h1>Meme Coin Dashboard</h1>
+
+  <div class="stats">
+    <div class="stat">Current Price: <span id="current-price">--</span></div>
+    <div class="stat">Total Volume: <span id="volume">--</span></div>
+    <div class="stat">Liquidity: <span id="liquidity">--</span></div>
+  </div>
+
+  <!-- Global MEV Boost Option -->
+  <div class="global-options">
+    <label for="global-mev-boost">Enable MEV Boost for all transactions:</label>
+    <input type="checkbox" id="global-mev-boost">
+  </div>
+
+  <div id="chart-container">
+    <canvas id="priceChart" width="400" height="200"></canvas>
+  </div>
+
+  <hr>
+
+  <h2>Buy Tokens</h2>
+  <form id="buy-form">
+    <input type="text" id="buyer" placeholder="Buyer" required>
+    <input type="number" id="buy-amount" placeholder="Amount" required>
+    <button type="submit">Buy</button>
+  </form>
+
+  <h2>Sell Tokens</h2>
+  <form id="sell-form">
+    <input type="text" id="seller" placeholder="Seller" required>
+    <input type="number" id="sell-amount" placeholder="Amount" required>
+    <button type="submit">Sell</button>
+  </form>
+
+  <h2>Add Liquidity</h2>
+  <form id="add-liquidity-form">
+    <input type="text" id="provider-add" placeholder="Provider" required>
+    <input type="number" id="add-liquidity-amount" placeholder="Amount" required>
+    <button type="submit">Add Liquidity</button>
+  </form>
+
+  <h2>Remove Liquidity</h2>
+  <form id="remove-liquidity-form">
+    <input type="text" id="provider-remove" placeholder="Provider" required>
+    <input type="number" id="remove-liquidity-amount" placeholder="Amount" required>
+    <button type="submit">Remove Liquidity</button>
+  </form>
+
+  <script>
+    // The API is running on port 5001
+    const API_BASE = 'http://localhost:5001';
+  
+    let myChart; 
+    let chartData = {
+      labels: [],
+      datasets: [{
+        label: 'Price History',
+        data: [],
+        borderColor: 'rgba(75, 192, 192, 1)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        fill: true,
+        tension: 0.1
+      }]
+    };
+
+    // Initialize Chart.js chart.
+    function initChart() {
+      const ctx = document.getElementById('priceChart').getContext('2d');
+      myChart = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+          scales: {
+            x: {
+              display: true,
+              title: { display: true, text: 'Time' }
+            },
+            y: {
+              display: true,
+              title: { display: true, text: 'Price' }
+            }
+          }
+        }
+      });
+    }
+  
+    async function fetchDashboardData() {
+      try {
+        const response = await fetch(`${API_BASE}/dashboard`);
+        const data = await response.json();
+  
+        // Update stats
+        document.getElementById('current-price').textContent = data.current_price;
+        document.getElementById('volume').textContent = data.volume;
+        document.getElementById('liquidity').textContent = data.liquidity;
+  
+        // Use the price history (each entry has a timestamp and a price)
+        const labels = data.history.map(entry => entry.timestamp);
+        const prices = data.history.map(entry => entry.price);
+  
+        // Update the Chart.js chart
+        if (myChart) {
+          myChart.data.labels = labels;
+          myChart.data.datasets[0].data = prices;
+          myChart.update();
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    }
+  
+    // Generic function to POST data to a given endpoint and refresh the dashboard on success.
+    async function postAction(endpoint, payload, formId) {
+      try {
+        const response = await fetch(`${API_BASE}/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        alert(result.message || result.error || 'Action completed');
+        if (formId) document.getElementById(formId).reset();
+        fetchDashboardData();
+      } catch (error) {
+        console.error(`Error in ${endpoint}:`, error);
+      }
+    }
+  
+    // Handle Buy form submission
+    document.getElementById('buy-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const buyer = document.getElementById('buyer').value;
+      const amount = document.getElementById('buy-amount').value;
+      const mevBoost = document.getElementById('global-mev-boost').checked;
+      postAction('buy', { buyer, amount, mev_boost: mevBoost }, 'buy-form');
+    });
+  
+    // Handle Sell form submission
+    document.getElementById('sell-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const seller = document.getElementById('seller').value;
+      const amount = document.getElementById('sell-amount').value;
+      const mevBoost = document.getElementById('global-mev-boost').checked;
+      postAction('sell', { seller, amount, mev_boost: mevBoost }, 'sell-form');
+    });
+  
+    // Handle Add Liquidity form submission
+    document.getElementById('add-liquidity-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const provider = document.getElementById('provider-add').value;
+      const amount = document.getElementById('add-liquidity-amount').value;
+      const mevBoost = document.getElementById('global-mev-boost').checked;
+      postAction('add_liquidity', { provider, amount, mev_boost: mevBoost }, 'add-liquidity-form');
+    });
+  
+    // Handle Remove Liquidity form submission
+    document.getElementById('remove-liquidity-form').addEventListener('submit', function(event) {
+      event.preventDefault();
+      const provider = document.getElementById('provider-remove').value;
+      const amount = document.getElementById('remove-liquidity-amount').value;
+      const mevBoost = document.getElementById('global-mev-boost').checked;
+      postAction('remove_liquidity', { provider, amount, mev_boost: mevBoost }, 'remove-liquidity-form');
+    });
+  
+    // Initialize chart and set up frequent polling for dynamic updates.
+    window.onload = function() {
+      initChart();
+      fetchDashboardData();
+      // Update dashboard every second for dynamic price updates.
+      setInterval(fetchDashboardData, 1000);
+    };
+  </script>
+</body>
+</html>

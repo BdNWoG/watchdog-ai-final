@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trader's Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+      color: #333;
+    }
+    h1 { text-align: center; }
+    .container {
+      max-width: 800px;
+      margin: 20px auto;
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .stat {
+      font-size: 1.2em;
+      margin: 10px 0;
+    }
+    .trade-buttons {
+      text-align: center;
+      margin: 20px 0;
+    }
+    .trade-buttons button {
+      padding: 10px 20px;
+      margin: 0 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #chartContainer {
+      width: 100%;
+      max-width: 750px;
+      margin: 30px auto;
+    }
+    #watchdogStatus {
+      font-weight: bold;
+      text-align: center;
+      margin-top: 10px;
+    }
+    #toggleWatchdogBtn {
+      display: block;
+      margin: 10px auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    /* Trade Log Table */
+    #tradeLogContainer {
+      margin-top: 30px;
+    }
+    #tradeLogTable {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #tradeLogTable th, #tradeLogTable td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    #tradeLogTable th {
+      background-color: #eee;
+    }
+  </style>
+  <!-- Include Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Trader 0x6a038a9481dd46186da3cf63e7e2d85398abc047's Dashboard</h1>
+  <div class="container">
+    <div class="stat"><strong>Liquidity (USD):</strong> <span id="liquidity">--</span></div>
+    <div class="stat"><strong>Asset Holdings (TOKEN):</strong> <span id="assets">--</span></div>
+    <div class="stat"><strong>Asset Price (USD):</strong> <span id="assetPrice">--</span></div>
+    <div class="stat"><strong>Total Portfolio Value (USD):</strong> <span id="totalValue">--</span></div>
+    <div class="stat"><strong>PnL (USD):</strong> <span id="pnl">--</span></div>
+    <div id="watchdogStatus">WatchdogAI: <span id="wdStatus">--</span></div>
+    <button id="toggleWatchdogBtn">Toggle WatchdogAI</button>
+    
+    <div class="trade-buttons">
+      <button onclick="trade('buy')">Buy TOKEN</button>
+      <button onclick="trade('sell')">Sell TOKEN</button>
+    </div>
+    
+    <div id="chartContainer">
+      <canvas id="pnlChart"></canvas>
+    </div>
+    
+    <!-- Trade Log Section -->
+    <div id="tradeLogContainer">
+      <h2>Trade Log</h2>
+      <table id="tradeLogTable">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Trade Type</th>
+            <th>Amount (USD)</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Trade log entries will be appended here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // URL for the trader dashboard API (running on port 5004)
+    const API_BASE = 'http://localhost:5004';
+
+    let chart; 
+    let chartData = {
+      labels: [],
+      datasets: [{
+        label: "Portfolio Value (USD)",
+        data: [],
+        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        borderColor: "rgba(75, 192, 192, 1)",
+        fill: true,
+        tension: 0.2
+      }]
+    };
+
+    function initChart() {
+      const ctx = document.getElementById('pnlChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: chartData,
+        options: {
+          scales: {
+            x: { title: { display: true, text: "Time" } },
+            y: { title: { display: true, text: "Portfolio Value (USD)" } }
+          }
+        }
+      });
+    }
+
+    async function fetchPortfolio() {
+      try {
+        const response = await fetch(`${API_BASE}/api/portfolio`);
+        if (!response.ok) throw new Error('Error fetching portfolio data');
+        const data = await response.json();
+        document.getElementById('liquidity').innerText = data.liquidity;
+        document.getElementById('assets').innerText = data.assets.TOKEN;
+        document.getElementById('assetPrice').innerText = data.asset_price;
+        document.getElementById('totalValue').innerText = data.total_value;
+        document.getElementById('pnl').innerText = data.pnl;
+        
+        chartData.labels = data.history.map(point => point.timestamp);
+        chartData.datasets[0].data = data.history.map(point => point.total_value);
+        chart.update();
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    
+    async function fetchWatchdogStatus() {
+      try {
+        const response = await fetch(`${API_BASE}/api/watchdog`);
+        if (!response.ok) throw new Error('Error fetching WatchdogAI status');
+        const data = await response.json();
+        document.getElementById('wdStatus').innerText = data.activated ? "Activated" : "Inactive";
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    
+    async function trade(tradeType) {
+      const amount = prompt(`Enter USD amount to ${tradeType}:`);
+      if (!amount || isNaN(amount)) {
+        alert("Invalid amount.");
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/api/trade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: tradeType, amount: parseFloat(amount) })
+        });
+        const result = await response.json();
+        if (response.ok) {
+          alert(result.message);
+          addTradeLog(new Date().toLocaleTimeString(), tradeType, amount, "User");
+        } else {
+          alert("Trade error: " + result.error);
+        }
+        fetchPortfolio();
+      } catch (error) {
+        console.error("Trade error:", error);
+      }
+    }
+
+    async function toggleWatchdog() {
+      try {
+        const response = await fetch(`${API_BASE}/api/toggle_watchdog`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const result = await response.json();
+        alert(result.message);
+        fetchWatchdogStatus();
+      } catch (error) {
+        console.error("Error toggling WatchdogAI:", error);
+      }
+    }
+
+    // This function is periodically called to check for conditions that trigger an autotrade.
+    async function autoFrontrunCheck() {
+      try {
+        // Only proceed if WatchdogAI is activated.
+        const wdResponse = await fetch(`${API_BASE}/api/watchdog`);
+        if (!wdResponse.ok) return;
+        const wdData = await wdResponse.json();
+        if (!wdData.activated) return;
+      } catch (e) {
+        console.error("Error checking watchdog status:", e);
+        return;
+      }
+      
+      try {
+        // Check the portfolio to see if the asset price is below a threshold.
+        const response = await fetch(`${API_BASE}/api/portfolio`);
+        const data = await response.json();
+        if (data.asset_price < 0.95) {  // threshold for triggering autotrade
+          // Trigger autotrade on the trader's behalf.
+          const autoResponse = await fetch(`${API_BASE}/api/autotrade`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'buy', amount: 1000 })
+          });
+          if (autoResponse.ok) {
+            const autoResult = await autoResponse.json();
+            console.log("Auto frontrun executed:", autoResult.message);
+            alert("WatchdogAI autotrade executed: " + autoResult.message);
+            addTradeLog(new Date().toLocaleTimeString(), "buy", 1000, "Auto");
+            fetchPortfolio();
+          } else {
+            console.error("Error executing autotrade.");
+          }
+        }
+      } catch (error) {
+        console.error("Error in auto frontrun check:", error);
+      }
+    }
+
+    function addTradeLog(timestamp, tradeType, amount, source) {
+      const tbody = document.getElementById('tradeLogTable').querySelector('tbody');
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td>${timestamp}</td>
+        <td>${tradeType}</td>
+        <td>${amount}</td>
+        <td>${source}</td>
+      `;
+      tbody.insertBefore(row, tbody.firstChild);
+    }
+  
+    window.onload = function() {
+      initChart();
+      fetchPortfolio();
+      fetchWatchdogStatus();
+      setInterval(fetchPortfolio, 1000);
+      setInterval(fetchWatchdogStatus, 10000);
+      setInterval(autoFrontrunCheck, 5000);
+    };
+  
+    document.getElementById('toggleWatchdogBtn').addEventListener('click', toggleWatchdog);
+  </script>
+  
+</body>
+</html>

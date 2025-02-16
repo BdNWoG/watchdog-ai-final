@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mempool Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    form {
+      margin-bottom: 20px;
+    }
+    label, select, input, button {
+      padding: 8px;
+      margin: 5px;
+      font-size: 1em;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+    }
+    #message {
+      margin: 10px 0;
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mempool Dashboard</h1>
+
+  <h2>Add Transaction</h2>
+  <form id="transaction-form">
+    <label for="tx-type">Transaction Type:</label>
+    <select id="tx-type" required>
+      <option value="buy">Buy</option>
+      <option value="sell">Sell</option>
+      <option value="add_liquidity">Add Liquidity</option>
+      <option value="remove_liquidity">Remove Liquidity</option>
+    </select>
+    <br>
+    <label id="address-label" for="address">Buyer Address:</label>
+    <input type="text" id="address" placeholder="Enter address" required>
+    <br>
+    <label for="amount">Amount:</label>
+    <input type="number" id="amount" placeholder="Amount" required>
+    <br>
+    <label for="mevBoost">MEV Boost:</label>
+    <input type="checkbox" id="mevBoost">
+    <br>
+    <button type="submit">Add Transaction</button>
+  </form>
+  
+  <div id="message"></div>
+
+  <h2>Transactions</h2>
+  <button id="refresh-btn">Refresh List</button>
+  <table id="transactions-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Address</th>
+        <th>Amount</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Transactions will be dynamically populated here -->
+    </tbody>
+  </table>
+
+  <script>
+    const API_BASE = 'http://localhost:5000';
+
+    // Update the address label based on transaction type.
+    const txTypeSelect = document.getElementById('tx-type');
+    const addressLabel = document.getElementById('address-label');
+    txTypeSelect.addEventListener('change', () => {
+      const type = txTypeSelect.value;
+      if (type === 'buy') {
+        addressLabel.textContent = 'Buyer Address:';
+      } else if (type === 'sell') {
+        addressLabel.textContent = 'Seller Address:';
+      } else {
+        addressLabel.textContent = 'Provider Address:';
+      }
+    });
+
+    async function fetchTransactions() {
+      console.log("Starting to fetch transactions...");
+      try {
+        // Adding a cache-busting query parameter.
+        const response = await fetch(`${API_BASE}/transaction?t=${Date.now()}`);
+        if (!response.ok) {
+          console.error("API response not OK:", response.status);
+          return;
+        }
+        let transactions = await response.json();
+        console.log("Transactions received:", transactions);
+
+        if (!Array.isArray(transactions)) {
+          console.error("Expected an array, but got:", transactions);
+          return;
+        }
+        
+        // Reverse transactions so newest appear at the top.
+        transactions = transactions.reverse();
+
+        const tbody = document.getElementById('transactions-table').querySelector('tbody');
+        tbody.innerHTML = '';
+
+        transactions.forEach(tx => {
+          // Determine the address field based on type.
+          let address = '';
+          if (tx.type === 'buy') {
+            address = tx.buyer || '';
+          } else if (tx.type === 'sell') {
+            address = tx.seller || '';
+          } else {
+            address = tx.provider || '';
+          }
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${tx.id}</td>
+            <td>${tx.type}</td>
+            <td>${address}</td>
+            <td>${tx.amount || ''}</td>
+            <td>${tx.status || 'executed'}</td>
+            <td><button onclick="deleteTransaction('${tx.id}')">Delete</button></td>
+          `;
+          tbody.appendChild(row);
+        });
+        console.log("Table updated with transactions.");
+      } catch (error) {
+        console.error('Error fetching transactions:', error);
+      }
+    }
+
+    async function deleteTransaction(txId) {
+      try {
+        const response = await fetch(`${API_BASE}/transaction/${txId}`, {
+          method: 'DELETE'
+        });
+        if (response.ok) {
+          alert('Transaction deleted');
+          fetchTransactions();
+        } else {
+          const errorData = await response.json();
+          alert(`Error: ${errorData.error}`);
+        }
+      } catch (error) {
+        console.error('Error deleting transaction:', error);
+      }
+    }
+
+    document.getElementById('transaction-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const type = txTypeSelect.value;
+      const address = document.getElementById('address').value;
+      const amount = document.getElementById('amount').value;
+      // Get MEV boost checkbox value.
+      const mevBoost = document.getElementById('mevBoost').checked;
+  
+      // Prepare payload based on type.
+      let payload = { type, amount, mev_boost: mevBoost };
+      if (type === 'buy') {
+        payload.buyer = address;
+      } else if (type === 'sell') {
+        payload.seller = address;
+      } else {
+        payload.provider = address;
+      }
+  
+      try {
+        const response = await fetch(`${API_BASE}/transaction`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (response.ok) {
+          document.getElementById('message').textContent = 'Transaction added successfully!';
+          setTimeout(() => { document.getElementById('message').textContent = ''; }, 3000);
+          document.getElementById('transaction-form').reset();
+          // Reset address label to default "Buyer Address".
+          addressLabel.textContent = 'Buyer Address:';
+          fetchTransactions();
+        } else {
+          const errorData = await response.json();
+          alert(`Error: ${errorData.error}`);
+        }
+      } catch (error) {
+        console.error('Error adding transaction:', error);
+      }
+    });
+  
+    document.getElementById('refresh-btn').addEventListener('click', fetchTransactions);
+    window.onload = fetchTransactions;
+    setInterval(fetchTransactions, 5000);
+  </script>
+</body>
+</html>
