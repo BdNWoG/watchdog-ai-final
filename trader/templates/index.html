@@ -4,20 +4,32 @@
   <meta charset="UTF-8">
   <title>Trader's Dashboard</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-      background: #f5f5f5;
-      color: #333;
+    /* Base Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    h1 { text-align: center; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #eef2f7;
+      color: #444;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      color: #2c3e50;
+      margin-bottom: 20px;
+    }
     .container {
       max-width: 800px;
       margin: 20px auto;
       background: #fff;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     .stat {
       font-size: 1.2em;
@@ -28,10 +40,18 @@
       margin: 20px 0;
     }
     .trade-buttons button {
-      padding: 10px 20px;
+      background-color: #2980b9;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      padding: 12px 24px;
       margin: 0 10px;
       font-size: 16px;
       cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .trade-buttons button:hover {
+      background-color: #1f6391;
     }
     #chartContainer {
       width: 100%;
@@ -45,10 +65,18 @@
     }
     #toggleWatchdogBtn {
       display: block;
-      margin: 10px auto;
+      margin: 20px auto;
+      background-color: #e67e22;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #toggleWatchdogBtn:hover {
+      background-color: #cf711f;
     }
     /* Trade Log Table */
     #tradeLogContainer {
@@ -59,12 +87,23 @@
       border-collapse: collapse;
     }
     #tradeLogTable th, #tradeLogTable td {
-      border: 1px solid #ccc;
-      padding: 8px;
+      border: 1px solid #ddd;
+      padding: 10px;
       text-align: center;
     }
     #tradeLogTable th {
-      background-color: #eee;
+      background-color: #f7f7f7;
+      font-weight: 600;
+    }
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 2rem;
+      }
+      .trade-buttons button, #toggleWatchdogBtn {
+        width: 100%;
+        max-width: 300px;
+        margin: 10px auto;
+      }
     }
   </style>
   <!-- Include Chart.js via CDN -->
@@ -92,7 +131,7 @@
     
     <!-- Trade Log Section -->
     <div id="tradeLogContainer">
-      <h2>Trade Log</h2>
+      <h2 style="text-align:center; margin-bottom:10px;">Trade Log</h2>
       <table id="tradeLogTable">
         <thead>
           <tr>
@@ -126,6 +165,7 @@
       }]
     };
 
+    // Initialize the Chart.js line chart.
     function initChart() {
       const ctx = document.getElementById('pnlChart').getContext('2d');
       chart = new Chart(ctx, {
@@ -151,6 +191,7 @@
         document.getElementById('totalValue').innerText = data.total_value;
         document.getElementById('pnl').innerText = data.pnl;
         
+        // Update the chart with historical portfolio values.
         chartData.labels = data.history.map(point => point.timestamp);
         chartData.datasets[0].data = data.history.map(point => point.total_value);
         chart.update();
@@ -209,10 +250,10 @@
       }
     }
 
-    // This function is periodically called to check for conditions that trigger an autotrade.
+    // Periodically check for conditions to trigger an autotrade.
     async function autoFrontrunCheck() {
       try {
-        // Only proceed if WatchdogAI is activated.
+        // Proceed only if WatchdogAI is activated.
         const wdResponse = await fetch(`${API_BASE}/api/watchdog`);
         if (!wdResponse.ok) return;
         const wdData = await wdResponse.json();
@@ -223,11 +264,10 @@
       }
       
       try {
-        // Check the portfolio to see if the asset price is below a threshold.
+        // Check if the asset price falls below the threshold.
         const response = await fetch(`${API_BASE}/api/portfolio`);
         const data = await response.json();
         if (data.asset_price < 0.95) {  // threshold for triggering autotrade
-          // Trigger autotrade on the trader's behalf.
           const autoResponse = await fetch(`${API_BASE}/api/autotrade`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

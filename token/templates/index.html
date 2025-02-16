@@ -6,64 +6,170 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1, h2 { margin-bottom: 10px; }
-    .stats { margin-bottom: 20px; }
-    .stat { margin: 10px 0; font-size: 1.2em; }
-    form { margin-bottom: 20px; }
-    input, button, select, label { padding: 8px; margin: 5px; font-size: 1em; }
-    #chart-container { width: 80%; max-width: 800px; margin: auto; }
-    .global-options { margin-bottom: 20px; }
+    /* Base Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #eef2f7;
+      color: #444;
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+    h1, h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #2c3e50;
+    }
+    h1 {
+      font-size: 2.5rem;
+    }
+    h2 {
+      font-size: 1.8rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px 30px;
+      margin: 20px auto;
+      max-width: 900px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+    .stat {
+      font-size: 1.2em;
+      margin: 10px;
+    }
+    .global-options {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .global-options label {
+      font-size: 1em;
+      margin-right: 10px;
+    }
+    form {
+      margin: 20px 0;
+    }
+    form label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    form input, form select {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+    form button {
+      background-color: #2980b9;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+      width: 100%;
+      max-width: 200px;
+      margin: 10px auto;
+      display: block;
+      padding: 10px;
+      font-size: 1em;
+    }
+    form button:hover {
+      background-color: #1f6391;
+    }
+    #chart-container {
+      width: 90%;
+      max-width: 800px;
+      margin: 20px auto;
+    }
+    @media (max-width: 640px) {
+      .stats {
+        flex-direction: column;
+        align-items: center;
+      }
+      h1 {
+        font-size: 2rem;
+      }
+      h2 {
+        font-size: 1.5rem;
+      }
+    }
   </style>
 </head>
 <body>
   <h1>Meme Coin Dashboard</h1>
 
-  <div class="stats">
-    <div class="stat">Current Price: <span id="current-price">--</span></div>
-    <div class="stat">Total Volume: <span id="volume">--</span></div>
-    <div class="stat">Liquidity: <span id="liquidity">--</span></div>
-  </div>
+  <!-- Stats Section -->
+  <div class="card">
+    <div class="stats">
+      <div class="stat">Current Price: <span id="current-price">--</span></div>
+      <div class="stat">Total Volume: <span id="volume">--</span></div>
+      <div class="stat">Liquidity: <span id="liquidity">--</span></div>
+    </div>
+    
+    <!-- Global MEV Boost Option -->
+    <div class="global-options">
+      <label for="global-mev-boost">Enable MEV Boost for all transactions:</label>
+      <input type="checkbox" id="global-mev-boost">
+    </div>
 
-  <!-- Global MEV Boost Option -->
-  <div class="global-options">
-    <label for="global-mev-boost">Enable MEV Boost for all transactions:</label>
-    <input type="checkbox" id="global-mev-boost">
-  </div>
-
-  <div id="chart-container">
-    <canvas id="priceChart" width="400" height="200"></canvas>
+    <!-- Chart Container -->
+    <div id="chart-container">
+      <canvas id="priceChart" width="400" height="200"></canvas>
+    </div>
   </div>
 
   <hr>
 
-  <h2>Buy Tokens</h2>
-  <form id="buy-form">
-    <input type="text" id="buyer" placeholder="Buyer" required>
-    <input type="number" id="buy-amount" placeholder="Amount" required>
-    <button type="submit">Buy</button>
-  </form>
-
-  <h2>Sell Tokens</h2>
-  <form id="sell-form">
-    <input type="text" id="seller" placeholder="Seller" required>
-    <input type="number" id="sell-amount" placeholder="Amount" required>
-    <button type="submit">Sell</button>
-  </form>
-
-  <h2>Add Liquidity</h2>
-  <form id="add-liquidity-form">
-    <input type="text" id="provider-add" placeholder="Provider" required>
-    <input type="number" id="add-liquidity-amount" placeholder="Amount" required>
-    <button type="submit">Add Liquidity</button>
-  </form>
-
-  <h2>Remove Liquidity</h2>
-  <form id="remove-liquidity-form">
-    <input type="text" id="provider-remove" placeholder="Provider" required>
-    <input type="number" id="remove-liquidity-amount" placeholder="Amount" required>
-    <button type="submit">Remove Liquidity</button>
-  </form>
+  <!-- Transaction Forms -->
+  <div class="card">
+    <h2>Buy Tokens</h2>
+    <form id="buy-form">
+      <label for="buyer">Buyer</label>
+      <input type="text" id="buyer" placeholder="Buyer" required>
+      <label for="buy-amount">Amount</label>
+      <input type="number" id="buy-amount" placeholder="Amount" required>
+      <button type="submit">Buy</button>
+    </form>
+    
+    <h2>Sell Tokens</h2>
+    <form id="sell-form">
+      <label for="seller">Seller</label>
+      <input type="text" id="seller" placeholder="Seller" required>
+      <label for="sell-amount">Amount</label>
+      <input type="number" id="sell-amount" placeholder="Amount" required>
+      <button type="submit">Sell</button>
+    </form>
+    
+    <h2>Add Liquidity</h2>
+    <form id="add-liquidity-form">
+      <label for="provider-add">Provider</label>
+      <input type="text" id="provider-add" placeholder="Provider" required>
+      <label for="add-liquidity-amount">Amount</label>
+      <input type="number" id="add-liquidity-amount" placeholder="Amount" required>
+      <button type="submit">Add Liquidity</button>
+    </form>
+    
+    <h2>Remove Liquidity</h2>
+    <form id="remove-liquidity-form">
+      <label for="provider-remove">Provider</label>
+      <input type="text" id="provider-remove" placeholder="Provider" required>
+      <label for="remove-liquidity-amount">Amount</label>
+      <input type="number" id="remove-liquidity-amount" placeholder="Amount" required>
+      <button type="submit">Remove Liquidity</button>
+    </form>
+  </div>
 
   <script>
     // The API is running on port 5001
@@ -113,11 +219,9 @@
         document.getElementById('volume').textContent = data.volume;
         document.getElementById('liquidity').textContent = data.liquidity;
   
-        // Use the price history (each entry has a timestamp and a price)
+        // Update chart with historical data
         const labels = data.history.map(entry => entry.timestamp);
         const prices = data.history.map(entry => entry.price);
-  
-        // Update the Chart.js chart
         if (myChart) {
           myChart.data.labels = labels;
           myChart.data.datasets[0].data = prices;
