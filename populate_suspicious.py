@@ -27,13 +27,13 @@ def create_suspicious_transaction(tx_type):
         return {"type": "add_liquidity", "amount": amount, "provider": random_address(), "mev_boost": False}
     elif tx_type == "remove_liquidity":
         # Suspicious remove liquidity: amount between 110000 and 200000 USD (above typical threshold)
-        amount = round(random.uniform(110000, 200000), 2)
+        amount = round(random.uniform(50000, 60000), 2)
         return {"type": "remove_liquidity", "amount": amount, "provider": random_address(), "mev_boost": False}
     else:
         return None
 
 def populate_suspicious_transactions(num_transactions=5):
-    tx_types = ["buy", "sell", "sell", "sell", "add_liquidity", "remove_liquidity", "remove_liquidity", "remove_liquidity", "remove_liquidity"]
+    tx_types = ["buy", "add_liquidity"]
     for i in range(num_transactions):
         tx_type = random.choice(tx_types)
         payload = create_suspicious_transaction(tx_type)
